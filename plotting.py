@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import data
+import models
 
 def plotIsoForest(X, xParam, yParam, state, raw=True):
     plt.scatter(X.loc[X['anomaly'] == 1, xParam], X.loc[X['anomaly'] == 1, yParam],
@@ -91,3 +93,54 @@ def plotIsoResultsFull(X_test, X_train, D_test, D_train, xParam, yParam, **kwarg
 
     plt.subplots_adjust(**kwargs)
     plt.show()
+
+def graphPlots(enbNum, csvPath, csvName):
+    for i in range(0, enbNum, 1):
+        csv_file_path = '%s%s%i.csv' %(csvPath, csvName, i)
+        df = data.readCSV(csv_file_path, ';')
+
+        # Trim parameters and set dataframe
+        df = df[['dl_brate', 'ul_brate', 'system_load']]
+        X = df[['ul_brate', 'dl_brate']]
+
+        # Raw Data
+        # Get splits and estimator
+        isoForest = models.getIsoForest(0.05)
+        X_train, X_test = data.getTrainTestSplit(X, .2)
+        X_train_results, X_test_results = models.returnAnomalyDF(X_train, X_test)
+
+        # Derivative Data
+        # Get data and set dataframe
+        deriv_df = data.getDiff(df)
+        D = deriv_df[['ul_brate', 'dl_brate']]
+
+        # Get splits and estimator
+        D_train, D_test = data.getTrainTestSplit(D, .2)
+        D_train_results, D_test_results = models.returnAnomalyDF(D_train, D_test)
+
+        plotIsoResultsFull(X_test_results, X_train_results, D_test_results, D_train_results, X.columns[0],
+                                 X.columns[1])
+
+        # 3 feature dimension reduction
+        df_sys = df.copy()
+
+        data.addRatioFeature(df_sys, 'ul_brate', 'system_load')
+        data.addRatioFeature(df_sys, 'dl_brate', 'system_load')
+
+        S = df_sys[['ul_brate / system_load', 'dl_brate / system_load']]
+
+        # Raw Data
+        # Get splits and estimator
+        S_train, S_test = data.getTrainTestSplit(S, .2)
+        S_train_results, S_test_results = models.returnAnomalyDF(S_train, S_test)
+
+        # Derivative Data
+        # Get data and set dataframe
+        deriv_df_sys = data.getDiff(df_sys)
+        SD = deriv_df_sys[['ul_brate / system_load', 'dl_brate / system_load']]
+        SD_train, SD_test = data.getTrainTestSplit(SD, .2)
+        SD_train_results, SD_test_results = models.returnAnomalyDF(SD_train, SD_test)
+
+        plotIsoResultsFull(S_test_results, S_train_results, SD_test_results, SD_train_results, S.columns[0],
+                                 S.columns[1], fontsize=8)
+
